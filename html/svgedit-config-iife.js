@@ -16697,244 +16697,440 @@
         if (evtTarget.tagName === 'tspan'){
           console.log("tspan");
           console.log(evtTarget);
-          // EDITOR DE TSPAN INTEGRADO
-          (function editTspan(tspanElement, event) {
-              // Variables para el estado de edición
-              var currentEditingElement = null;
-              var originalText = '';
-              var inputElement = null;
-              var originalKeydownHandler = null;
-              var isEditing = false;
-              
-              // Función para bloquear eventos de teclado globalmente
-              function blockKeyEvent(event) {
-                  if (isEditing && event.target !== inputElement) {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      event.stopImmediatePropagation();
-                      return false;
-                  }
-              }
-              
-              // Función para bloquear shortcuts globales
-              function blockGlobalKeyboardEvents() {
-                  // Guardar el handler original si existe
-                  originalKeydownHandler = document.onkeydown;
-                  
-                  // Instalar nuestro interceptor global
-                  document.onkeydown = function(event) {
-                      if (isEditing && inputElement) {
-                          // Si estamos editando, bloquear TODOS los eventos de teclado
-                          // excepto los que maneja nuestro input
-                          if (event.target !== inputElement) {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              event.stopImmediatePropagation();
-                              
-                              // Redirigir el foco al input si se perdió
-                              if (inputElement) {
-                                  inputElement.focus();
-                              }
-                              
-                              return false;
-                          }
-                      }
-                      
-                      // Si no estamos editando, permitir comportamiento normal
-                      if (originalKeydownHandler) {
-                          return originalKeydownHandler(event);
-                      }
-                  };
-                  
-                  // También bloquear keyup y keypress por seguridad
-                  document.addEventListener('keyup', blockKeyEvent, true);
-                  document.addEventListener('keypress', blockKeyEvent, true);
-              }
-              
-              // Función para restaurar eventos de teclado globales
-              function restoreGlobalKeyboardEvents() {
-                  // Restaurar el handler original
-                  document.onkeydown = originalKeydownHandler;
-                  originalKeydownHandler = null;
-                  
-                  // Remover listeners de bloqueo
-                  document.removeEventListener('keyup', blockKeyEvent, true);
-                  document.removeEventListener('keypress', blockKeyEvent, true);
-                  
-                  isEditing = false;
-              }
-              
-              // Función para manejar teclas del input
-              function handleInputKeydown(event) {
-                  // IMPORTANTE: Detener propagación para evitar shortcuts
-                  event.stopPropagation();
-                  event.stopImmediatePropagation();
-                  
-                  switch(event.key) {
-                      case 'Enter':
-                          saveEditing();
-                          break;
-                      case 'Escape':
-                          cancelEditing();
-                          break;
-                      // Permitir todas las demás teclas normalmente
-                      default:
-                          // No hacer nada, permitir comportamiento normal del input
-                          break;
-                  }
-              }
-              
-              // Función para crear el input de edición
-              function createEditingInput(tspanElement) {
-                  // Obtener posición del tspan
-                  var rect = tspanElement.getBoundingClientRect();
-                  var svgRect = tspanElement.ownerSVGElement.getBoundingClientRect();
-                  
-                  // Crear input
-                  inputElement = document.createElement('input');
-                  inputElement.type = 'text';
-                  inputElement.value = tspanElement.textContent;
-                  inputElement.style.cssText = 'position: absolute; background: rgba(230, 223, 208, 0.95); color: #000; border: 2px solid #4CAF50; padding: 2px 4px; font-family: "Ubuntu Mono Medium", monospace; font-size: 10pt; border-radius: 3px; outline: none; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.5);';
-                  
-                  // Posicionar el input sobre el tspan
-                  inputElement.style.left = rect.left + 'px';
-                  inputElement.style.top = rect.top + 'px';
-                  inputElement.style.width = Math.max(rect.width, 100) + 'px';
-                  
-                  // Agregar al DOM
-                  document.body.appendChild(inputElement);
-                  
-                  // Enfocar y seleccionar texto
-                  setTimeout(function() {
-                      inputElement.focus();
-                      inputElement.select();
-                  }, 10);
-                  
-                  // Event listeners específicos del input
-                  inputElement.addEventListener('keydown', handleInputKeydown);
-                  
-                  // Agregar listener global para clics fuera del input
-                  function handleOutsideClick(event) {
-                      // Si el clic no es en el input, guardar y cerrar
-                      if (isEditing && event.target !== inputElement) {
-                          // Remover este listener inmediatamente para evitar múltiples llamadas
-                          document.removeEventListener('click', handleOutsideClick, true);
-                          
-                          // Usar setTimeout para evitar conflictos con otros eventos
-                          setTimeout(function() {
-                              if (isEditing) {
-                                  saveEditing();
-                              }
-                          }, 10);
-                      }
-                  }
-                  
-                  // Agregar el listener con capture=true para interceptar antes que otros handlers
-                  setTimeout(function() {
-                      document.addEventListener('click', handleOutsideClick, true);
-                  }, 100); // Pequeño delay para evitar que el doble clic actual lo active
-                  
-                  // Ocultar temporalmente el tspan original
-                  tspanElement.style.opacity = '0.3';
-              }
-              
-              // Función para guardar la edición
-              function saveEditing() {
-                  if (!isEditing || !currentEditingElement || !inputElement) return;
-                  
-                  // Actualizar el contenido del tspan
-                  var newText = inputElement.value;
-                  
-                  // Solo guardar si el texto cambió
-                  if (newText !== originalText) {
-                      currentEditingElement.textContent = newText;
-                      
-                      console.log('Texto actualizado: "' + originalText + '" → "' + newText + '"');
-                      
-                      // Llamar al sistema de undo con el elemento editado
-                      try {
-                          canvas.undoMgr.addCommandToHistory([currentEditingElement]);
-                      } catch(e) {
-                          console.warn('No se pudo agregar al historial de undo:', e);
-                      }
-                  } else {
-                      console.log('Texto sin cambios, no se guardó');
-                  }
-                  
-                  finishEditing();
-              }
-              
-              // Función para cancelar la edición
-              function cancelEditing() {
-                  if (!isEditing || !currentEditingElement) return;
-                  
-                  console.log('Edición cancelada');
-                  finishEditing();
-              }
-              
-              // Función para finalizar la edición
-              function finishEditing() {
-                  // Prevenir múltiples llamadas
-                  if (!isEditing) return;
-                  
-                  // Remover listener de clics externos si existe
-                  try {
-                      document.removeEventListener('click', handleOutsideClick, true);
-                  } catch(e) {
-                      // El listener podría no existir, ignorar error
-                  }
-                  
-                  // Restaurar eventos de teclado globales
-                  restoreGlobalKeyboardEvents();
-                  
-                  // Restaurar visibilidad del tspan
-                  if (currentEditingElement) {
-                      currentEditingElement.style.opacity = '1';
-                  }
-                  
-                  // Limpiar input de manera segura
-                  if (inputElement && inputElement.parentNode) {
-                      try {
-                          inputElement.remove();
-                      } catch(e) {
-                          // Si falla remove(), intentar con removeChild()
-                          try {
-                              inputElement.parentNode.removeChild(inputElement);
-                          } catch(e2) {
-                              console.warn('No se pudo remover el input element:', e2);
-                          }
-                      }
-                      inputElement = null;
-                  }
-                  
-                  // Limpiar referencias
-                  currentEditingElement = null;
-                  originalText = '';
-                  isEditing = false;
-              }
-              
-              // INICIAR LA EDICIÓN
-              // Si ya estamos editando otro elemento, terminar esa edición
-              if (currentEditingElement) {
-                  finishEditing();
-              }
-              
-              currentEditingElement = tspanElement;
-              originalText = tspanElement.textContent;
-              isEditing = true;
-              
-              // Crear input de edición
-              createEditingInput(tspanElement);
-              
-              // CRÍTICO: Capturar y bloquear todos los eventos de teclado
-              blockGlobalKeyboardEvents();
-              
-              event.stopPropagation();
-              event.preventDefault();
-              
-          })(evtTarget, evt); // Llamada inmediata de la función con los parámetros necesarios
-          
-          // FIN DEL EDITOR DE TSPAN
+        // EDITOR DE TSPAN INTEGRADO
+        (function editTspan(tspanElement, event) {
+            // Variables para el estado de edición
+            var currentEditingElement = null;
+            var originalText = '';
+            var inputElement = null;
+            var originalKeydownHandler = null;
+            var isEditing = false;
+            
+            // Función para bloquear eventos de teclado globalmente
+            function blockKeyEvent(event) {
+                if (isEditing && event.target !== inputElement) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    event.stopImmediatePropagation();
+                    return false;
+                }
+            }
+            
+            // Función para bloquear shortcuts globales
+            function blockGlobalKeyboardEvents() {
+                // Guardar el handler original si existe
+                originalKeydownHandler = document.onkeydown;
+                
+                // Instalar nuestro interceptor global
+                document.onkeydown = function(event) {
+                    if (isEditing && inputElement) {
+                        // Si estamos editando, bloquear TODOS los eventos de teclado
+                        // excepto los que maneja nuestro input
+                        if (event.target !== inputElement) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            event.stopImmediatePropagation();
+                            
+                            // Redirigir el foco al input si se perdió
+                            if (inputElement) {
+                                inputElement.focus();
+                            }
+                            
+                            return false;
+                        }
+                    }
+                    
+                    // Si no estamos editando, permitir comportamiento normal
+                    if (originalKeydownHandler) {
+                        return originalKeydownHandler(event);
+                    }
+                };
+                
+                // También bloquear keyup y keypress por seguridad
+                document.addEventListener('keyup', blockKeyEvent, true);
+                document.addEventListener('keypress', blockKeyEvent, true);
+            }
+            
+            // Función para restaurar eventos de teclado globales
+            function restoreGlobalKeyboardEvents() {
+                // Restaurar el handler original
+                document.onkeydown = originalKeydownHandler;
+                originalKeydownHandler = null;
+                
+                // Remover listeners de bloqueo
+                document.removeEventListener('keyup', blockKeyEvent, true);
+                document.removeEventListener('keypress', blockKeyEvent, true);
+                
+                isEditing = false;
+            }
+            
+            // Función para manejar teclas del input
+            function handleInputKeydown(event) {
+                // IMPORTANTE: Detener propagación para evitar shortcuts
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                
+                // Manejar Ctrl + Enter o Shift + Enter para crear nuevo tspan
+                if ((event.ctrlKey || event.shiftKey) && event.key === 'Enter') {
+                    event.preventDefault();
+                    createNextTspanAndEdit();
+                    return;
+                }
+                
+                // Manejar flechas para navegar entre tspans
+                if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    navigateToTspan('up');
+                    return;
+                }
+                
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    navigateToTspan('down');
+                    return;
+                }
+                
+                switch(event.key) {
+                    case 'Enter':
+                        saveEditing();
+                        break;
+                    case 'Escape':
+                        cancelEditing();
+                        break;
+                    // Permitir todas las demás teclas normalmente
+                    default:
+                        // No hacer nada, permitir comportamiento normal del input
+                        break;
+                }
+            }
+            
+            // Función para crear el input de edición
+            function createEditingInput(tspanElement) {
+                // Obtener posición del tspan de forma más precisa
+                console.log(tspanElement);
+                var bbox = tspanElement.getBBox();
+                var svg = tspanElement.ownerSVGElement;
+                
+                // Obtener la matriz de transformación del tspan
+                var ctm = svg.getScreenCTM();
+                var tspanMatrix = tspanElement.getScreenCTM();
+                
+                // Transformar coordenadas SVG a coordenadas de pantalla
+                var point = svg.createSVGPoint();
+                point.x = bbox.x;
+                point.y = bbox.y;
+                
+                if (tspanElement.textContent == "") {
+                  // If the tspan is empty then this code displays it correctly
+                  tspanMatrix = ctm;
+                  point.x = parseFloat(tspanElement.getAttribute('x')) || 0;
+                  point.y = parseFloat(tspanElement.getAttribute('y')) || 0;
+                }
+
+                var screenPoint = point.matrixTransform(tspanMatrix);
+                
+                if (tspanElement.textContent == "") {
+                  // If the tspan is empty this code correct it position
+                  screenPoint.y += 20;
+                }
+
+                // Crear input
+                inputElement = document.createElement('input');
+                inputElement.type = 'text';
+                inputElement.value = tspanElement.textContent;
+                inputElement.style.cssText = 'position: absolute; background: rgba(230, 223, 208, 0.95); color: #000; border: 2px solid #4CAF50; padding: 2px 4px; font-family: "Ubuntu Mono Medium", monospace; font-size: 10pt; border-radius: 3px; outline: none; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.5);';
+                
+                // Posicionar el input usando las coordenadas transformadas
+                inputElement.style.left = screenPoint.x + 'px';
+                inputElement.style.top = screenPoint.y + "px";
+
+                inputElement.style.width = Math.max(bbox.width + 20, 100) + 'px';
+                
+                // Agregar al DOM
+                document.body.appendChild(inputElement);
+                
+                // Enfocar y seleccionar texto
+                setTimeout(function() {
+                    inputElement.focus();
+                    inputElement.select();
+                }, 10);
+                
+                // Event listeners específicos del input
+                inputElement.addEventListener('keydown', handleInputKeydown);
+                
+                // Agregar listener global para clics fuera del input
+                function handleOutsideClick(event) {
+                    // Si el clic no es en el input, guardar y cerrar
+                    if (isEditing && event.target !== inputElement) {
+                        // Remover este listener inmediatamente para evitar múltiples llamadas
+                        document.removeEventListener('click', handleOutsideClick, true);
+                        
+                        // Usar setTimeout para evitar conflictos con otros eventos
+                        setTimeout(function() {
+                            if (isEditing) {
+                                saveEditing();
+                            }
+                        }, 10);
+                    }
+                }
+                
+                // Agregar el listener con capture=true para interceptar antes que otros handlers
+                setTimeout(function() {
+                    document.addEventListener('click', handleOutsideClick, true);
+                }, 100); // Pequeño delay para evitar que el doble clic actual lo active
+                
+                // Ocultar temporalmente el tspan original
+                tspanElement.style.opacity = '0.3';
+            }
+            
+            // Función para guardar la edición
+            function saveEditing() {
+                if (!isEditing || !currentEditingElement || !inputElement) return;
+                
+                // Actualizar el contenido del tspan
+                var newText = inputElement.value;
+                
+                // Solo guardar si el texto cambió
+                if (newText !== originalText) {
+                    currentEditingElement.textContent = newText;
+                    
+                    console.log('Texto actualizado: "' + originalText + '" → "' + newText + '"');
+                    
+                    // Llamar al sistema de undo con el elemento editado
+                    try {
+                        canvas.undoMgr.addCommandToHistory([currentEditingElement]);
+                    } catch(e) {
+                        console.warn('No se pudo agregar al historial de undo:', e);
+                    }
+                } else {
+                    console.log('Texto sin cambios, no se guardó');
+                }
+                
+                finishEditing();
+            }
+            
+            // Función para cancelar la edición
+            function cancelEditing() {
+                if (!isEditing || !currentEditingElement) return;
+                
+                console.log('Edición cancelada');
+                finishEditing();
+            }
+            
+            // Función para navegar entre tspans
+            function navigateToTspan(direction) {
+                if (!isEditing || !currentEditingElement) return;
+                
+                // Guardar texto actual si cambió
+                var newText = inputElement.value;
+                if (newText !== originalText) {
+                    currentEditingElement.textContent = newText;
+                    
+                    try {
+                        canvas.undoMgr.addCommandToHistory([currentEditingElement]);
+                    } catch(e) {
+                        console.warn('No se pudo agregar al historial de undo:', e);
+                    }
+                }
+                
+                // Buscar el tspan en la dirección especificada
+                var parentText = currentEditingElement.parentNode;
+                var allTspans = Array.prototype.slice.call(parentText.children);
+                var currentIndex = allTspans.indexOf(currentEditingElement);
+                var targetTspan = null;
+                
+                if (direction === 'up' && currentIndex > 0) {
+                    targetTspan = allTspans[currentIndex - 1];
+                } else if (direction === 'down' && currentIndex < allTspans.length - 1) {
+                    targetTspan = allTspans[currentIndex + 1];
+                }
+                
+                if (targetTspan) {
+                    // Terminar edición actual
+                    finishEditing();
+                    
+                    // Comenzar edición del tspan objetivo
+                    setTimeout(function() {
+                        startEditingElement(targetTspan);
+                    }, 50);
+                    
+                    console.log('Navegando ' + direction + ' al tspan:', targetTspan);
+                } else {
+                    console.log('No hay tspan ' + (direction === 'up' ? 'anterior' : 'siguiente'));
+                }
+            }
+            
+            // Función para crear y editar el siguiente tspan
+            function createNextTspanAndEdit() {
+                if (!isEditing || !currentEditingElement || !inputElement) return;
+                
+                // Guardar el texto actual primero
+                var newText = inputElement.value;
+                if (newText !== originalText) {
+                    currentEditingElement.textContent = newText;
+                    
+                    try {
+                        canvas.undoMgr.addCommandToHistory([currentEditingElement]);
+                    } catch(e) {
+                        console.warn('No se pudo agregar al historial de undo:', e);
+                    }
+                }
+                
+                // Buscar si ya existe un tspan siguiente
+                var parentText = currentEditingElement.parentNode;
+                var allTspans = Array.prototype.slice.call(parentText.children);
+                var currentIndex = allTspans.indexOf(currentEditingElement);
+                var nextTspan = null;
+                
+                if (currentIndex >= 0 && currentIndex < allTspans.length - 1) {
+                    // Ya existe un tspan siguiente, usarlo
+                    nextTspan = allTspans[currentIndex + 1];
+                    console.log('Usando tspan existente:', nextTspan);
+                } else {
+                    // Crear nuevo tspan
+                    nextTspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    
+                    // Copiar atributos del tspan actual (excepto id y texto)
+                    var currentAttrs = currentEditingElement.attributes;
+                    for (var i = 0; i < currentAttrs.length; i++) {
+                        var attr = currentAttrs[i];
+                        if (attr.name !== 'id') {
+                            nextTspan.setAttribute(attr.name, attr.value);
+                        }
+                    }
+                    
+                    // Generar un nuevo ID único
+                    var baseId = currentEditingElement.id || 'svg_tspan';
+                    var newId = generateUniqueId(baseId);
+                    nextTspan.id = newId;
+                    
+                    // Calcular nueva posición Y (una línea abajo)
+                    var currentY = parseFloat(currentEditingElement.getAttribute('y')) || 0;
+                    var fontSize = parseFloat(getComputedStyle(currentEditingElement).fontSize) || 14;
+                    var lineHeight = fontSize * 1.4; // Aproximadamente 140% del tamaño de fuente
+                    var newY = currentY + lineHeight;
+                    
+                    nextTspan.setAttribute('y', newY.toString());
+                    
+                    // Texto inicial vacío
+                    nextTspan.textContent = '';
+                    
+                    // Insertar después del tspan actual
+                    if (currentEditingElement.nextSibling) {
+                        parentText.insertBefore(nextTspan, currentEditingElement.nextSibling);
+                    } else {
+                        parentText.appendChild(nextTspan);
+                    }
+                    
+                    console.log('Nuevo tspan creado:', nextTspan);
+                    
+                    // Agregar el nuevo elemento al historial
+                    try {
+                        canvas.undoMgr.addCommandToHistory([nextTspan]);
+                    } catch(e) {
+                        console.warn('No se pudo agregar nuevo tspan al historial:', e);
+                    }
+                }
+                
+                // Terminar edición actual
+                finishEditing();
+                
+                // Comenzar edición del siguiente tspan después de un breve delay
+                setTimeout(function() {
+                    startEditingElement(nextTspan);
+                }, 50);
+            }
+            
+            // Función auxiliar para generar ID único
+            function generateUniqueId(baseId) {
+                var counter = 1;
+                var newId;
+                
+                do {
+                    newId = baseId + '_' + counter;
+                    counter++;
+                } while (document.getElementById(newId));
+                
+                return newId;
+            }
+            
+            // Función auxiliar para iniciar edición de un elemento específico
+            function startEditingElement(element) {
+                // Simular el evento de doble clic para el nuevo elemento
+                currentEditingElement = element;
+                originalText = element.textContent;
+                isEditing = true;
+                
+                // Crear input de edición
+                createEditingInput(element);
+                
+                // Bloquear eventos de teclado globales
+                blockGlobalKeyboardEvents();
+                
+                console.log('Iniciando edición del siguiente tspan');
+            }
+            function finishEditing() {
+                // Prevenir múltiples llamadas
+                if (!isEditing) return;
+                
+                // Remover listener de clics externos si existe
+                try {
+                    document.removeEventListener('click', handleOutsideClick, true);
+                } catch(e) {
+                    // El listener podría no existir, ignorar error
+                }
+                
+                // Restaurar eventos de teclado globales
+                restoreGlobalKeyboardEvents();
+                
+                // Restaurar visibilidad del tspan
+                if (currentEditingElement) {
+                    currentEditingElement.style.opacity = '1';
+                }
+                
+                // Limpiar input de manera segura
+                if (inputElement && inputElement.parentNode) {
+                    try {
+                        inputElement.remove();
+                    } catch(e) {
+                        // Si falla remove(), intentar con removeChild()
+                        try {
+                            inputElement.parentNode.removeChild(inputElement);
+                        } catch(e2) {
+                            console.warn('No se pudo remover el input element:', e2);
+                        }
+                    }
+                    inputElement = null;
+                }
+                
+                // Limpiar referencias
+                currentEditingElement = null;
+                originalText = '';
+                isEditing = false;
+            }
+            
+            // INICIAR LA EDICIÓN
+            // Si ya estamos editando otro elemento, terminar esa edición
+            if (currentEditingElement) {
+                finishEditing();
+            }
+            
+            currentEditingElement = tspanElement;
+            originalText = tspanElement.textContent;
+            isEditing = true;
+            
+            // Crear input de edición
+            createEditingInput(tspanElement);
+            
+            // CRÍTICO: Capturar y bloquear todos los eventos de teclado
+            blockGlobalKeyboardEvents();
+            
+            event.stopPropagation();
+            event.preventDefault();
+            
+        })(evtTarget, evt); // Llamada inmediata de la función con los parámetros necesarios
+        
+        // FIN DEL EDITOR DE TSPAN
         }else{
           var _mouseTarget = mouseTarget, tagName = _mouseTarget.tagName;
 
@@ -33079,10 +33275,6 @@
     $$b('#seg_type').change(function () {
       svgCanvas.setSegType($$b(this).val());
     });
-    // $$b('#tspan').bind('keyup input', function () {
-    //   console.log("clic tspan");
-    //   svgCanvas.setTextContent(this.value);
-    // });
     $$b('#text').bind('keyup input', function () {
       svgCanvas.setTextContent(this.value);
     });
