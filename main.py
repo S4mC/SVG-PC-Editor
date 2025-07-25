@@ -6,6 +6,8 @@ import os
 # Todo: Add Ctrl + S and Ctrl + D shortcut si se puede (puede ser poniendo un codigo que se ejecute al iniciar el editor dentro de svgedit-config-iife.js)
 # Todo: Fix shortcut for send (back, forward, up, down)
 # Todo: With a clic in the background changue to the select tool automaticaly
+# Todo: Fix the place of the select box because sometimes its out of it place
+# Todo: Add the name of the file open for default if exist in save, Review: added save with pywebview api..
 
 class SVGEditAPI:
     def save_as(self, contentsave , default_filename=""):
