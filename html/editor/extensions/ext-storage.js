@@ -52,6 +52,9 @@ export default {
      * @param {string} val
      * @returns {void}
      */
+
+    console.log("init");
+
     function replaceStoragePrompt (val) {
       val = val ? 'storagePrompt=' + val : '';
       const loc = top.location; // Allow this to work with the embedded editor as well

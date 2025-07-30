@@ -6,13 +6,15 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge, chrome=1" />
     <meta name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes">
     <!-- STYLESHEETS (others loaded dynamically) -->
     <style id="styleoverrides" media="screen"></style>
 
     <link id="theme-stylesheet" rel="stylesheet" href="themes/dark-editor.css">
 
     <!-- SCRIPTS -->
+
+    <script src="LocalStorageSave.js"></script>
 
     <!-- As yet no ES6 Module support -->
     <!--{if jquery_release}>
@@ -774,8 +776,8 @@
   <li class="separator"><a href="#delete">Delete<span class="shortcut">BACKSPACE</span></a></li>
   <li class="separator"><a href="#group">Group<span class="shortcut">G</span></a></li>
   <li><a href="#ungroup">Ungroup<span class="shortcut">G</span></a></li>
-  <li class="separator"><a href="#setcontext">Set Context<span class="shortcut">.</span></a></li>
-  <li><a href="#leavecontext">Leave Context<span class="shortcut">,</span></a></li>
+  <li class="separator"><a href="#setcontext">Set Context</a></li>
+  <li><a href="#leavecontext">Leave Context</a></li>
   <li class="separator"><a href="#move_front">Bring to Front<span class="shortcut">CTRL+SHFT+]</span></a></li>
   <li><a href="#move_up">Bring Forward<span class="shortcut">CTRL+]</span></a></li>
   <li><a href="#move_down">Send Backward<span class="shortcut">CTRL+[</span></a></li>

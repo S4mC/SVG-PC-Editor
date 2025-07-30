@@ -8467,169 +8467,121 @@
   */
 
 
-  var getBBox = function getBBox(elem) {
-    var selected = elem || editorContext_$1.geSelectedElements()[0];
+  /**
+   * @param {SVGElement} element - Element to get the bounding box for
+   * @param {boolean} [withoutTransforms=true] - If true, transforms will not be calculated
+   * @param {SVGElement} [toElement=null] - Element to calculate bounding box relative to
+   * @returns {Object} Coordinates and dimensions of the real bounding box
+   */
+  var getBBox = function getBBox(element, withoutTransforms = true, toElement = null) {
+    var svg = element.ownerSVGElement;
 
-    if (elem.nodeType !== 1) {
-      return null;
+    if (!svg || element.nodeType !== 1) {
+      return { x: 0, y: 0, width: 0, height: 0 };
     }
 
-    var elname = selected.nodeName;
-    var ret = null;
+    var elname = element.nodeName;
+    var r = null;
 
-    function gettransforBBox(element, withoutTransforms = false, toElement = null) {
-
-      var svg = element.ownerSVGElement;
-
-      if (!svg) {
-        return { x: 0, y: 0, cx: 0, cy: 0, width: 0, height: 0 };
+    // Casos especiales del segundo código
+    try {
+      switch (elname) {
+        case 'text':
+          if (element.textContent === '') {
+            element.textContent = 'a'; // Carácter necesario para el selector
+            r = element.getBBox();
+            element.textContent = '';
+          } else if (element.getBBox) {
+            r = element.getBBox();
+          }
+          break;
+          
+        case 'g':
+        case 'a':
+        case 'use':
+          // Para grupos y elementos 'use', usar getBBox estándar
+          r = element.getBBox();
+          break;
+          
+        case 'tspan':
+        case 'textPath':
+          try {
+            r = element.getBBox();
+          } catch (err) {
+            // Fallback para tspan/textPath en Firefox
+            var extent = element.getExtentOfChar(0);
+            var width = element.getComputedTextLength();
+            r = {
+              x: extent.x,
+              y: extent.y,
+              width: width,
+              height: extent.height
+            };
+          }
+          break;
+          
+        default:
+          // Para todos los demás elementos
+          if (element.getBBox) {
+            r = element.getBBox();
+          }
       }
+    } catch (e) {
+      console.warn('getBBox() failed for element:', elname, e);
+      return { x: 0, y: 0, width: 0, height: 0 };
+    }
 
-      var r = element.getBBox(); 
+    if (!r) {
+      return { x: 0, y: 0, width: 0, height: 0 };
+    }
 
-      if (withoutTransforms) {
-        return {
-          x: r.x,
-          y: r.y,
-          width: r.width,
-          height: r.height,        
-          cx: r.x + r.width / 2,
-          cy: r.y + r.height / 2
-        };
-      }
-
-      var p = svg.createSVGPoint(); 
-
-      var matrix = (toElement || svg).getScreenCTM().inverse().multiply(element.getScreenCTM()); 
-
-      p.x = r.x;
-      p.y = r.y;
-      var a = p.matrixTransform(matrix);
-
-      p.x = r.x + r.width;
-      p.y = r.y;
-      var b = p.matrixTransform(matrix);
-
-      p.x = r.x + r.width;
-      p.y = r.y + r.height;
-      var c = p.matrixTransform(matrix);
-
-      p.x = r.x;
-      p.y = r.y + r.height;
-      var d = p.matrixTransform(matrix);
-
-      var minX = Math.min(a.x, b.x, c.x, d.x);
-      var maxX = Math.max(a.x, b.x, c.x, d.x);
-      var minY = Math.min(a.y, b.y, c.y, d.y);
-      var maxY = Math.max(a.y, b.y, c.y, d.y);
-
-      var width = maxX - minX;
-      var height = maxY - minY;
-
+    // Si no queremos transformaciones, devolver el bbox básico
+    if (withoutTransforms) {
       return {
-        x: minX,
-        y: minY,
-        width: width,
-        height: height,        
-        cx: minX + width / 2,
-        cy: minY + height / 2
+        x: r.x,
+        y: r.y,
+        width: r.width,
+        height: r.height
       };
     }
 
-    switch (elname) {
-      case 'text':
-        if (selected.textContent === '') {
-          selected.textContent = 'a'; // Some character needed for the selector to use.
+    // Aplicar transformaciones (código original)
+    var p = svg.createSVGPoint();
+    var matrix = (toElement || svg).getScreenCTM().inverse().multiply(element.getScreenCTM());
 
-          ret = selected.getBBox();
-          selected.textContent = '';
-        } else if (selected.getBBox) {
-          ret = selected.getBBox();
-        }
+    // Transformar las 4 esquinas
+    p.x = r.x;
+    p.y = r.y;
+    var a = p.matrixTransform(matrix);
 
-        break;
+    p.x = r.x + r.width;
+    p.y = r.y;
+    var b = p.matrixTransform(matrix);
 
-      case 'path':
-        if (!supportsPathBBox()) {
-          ret = getPathBBox(selected);
-        } else if (selected.getBBox) {
-          ret = selected.getBBox();
-        }
+    p.x = r.x + r.width;
+    p.y = r.y + r.height;
+    var c = p.matrixTransform(matrix);
 
-        break;
+    p.x = r.x;
+    p.y = r.y + r.height;
+    var d = p.matrixTransform(matrix);
 
-      case 'g':
-      case 'a':
-        ret = groupBBFix(selected);
-        break;
+    // Calcular el bounding box final
+    var minX = Math.min(a.x, b.x, c.x, d.x);
+    var maxX = Math.max(a.x, b.x, c.x, d.x);
+    var minY = Math.min(a.y, b.y, c.y, d.y);
+    var maxY = Math.max(a.y, b.y, c.y, d.y);
 
-      default:
-        if (elname === 'use') {
-          ret = groupBBFix(selected); // , true);
-        }
+    var width = maxX - minX;
+    var height = maxY - minY;
 
-        if (elname === 'use' || elname === 'foreignObject' && isWebkit()) {
-          if (!ret) {
-            ret = selected.getBBox();
-          } // This is resolved in later versions of webkit, perhaps we should
-          // have a featured detection for correct 'use' behavior?
-          // ——————————
-
-
-          if (!isWebkit()) {
-            var _ret = ret,
-                x = _ret.x,
-                y = _ret.y,
-                width = _ret.width,
-                height = _ret.height;
-            var bb = {
-              width: width,
-              height: height,
-              x: x + parseFloat(selected.getAttribute('x') || 0),
-              y: y + parseFloat(selected.getAttribute('y') || 0)
-            };
-            ret = bb;
-          }
-        } else if (visElemsArr.includes(elname)) {
-          if (selected) {
-            try {
-              ret = selected.getBBox();
-            } catch (err) {
-              // tspan (and textPath apparently) have no `getBBox` in Firefox: http://bugzilla.mozilla.org/show_bug.cgi?id=937268
-              // Re: Chrome returning bbox for containing text element, see: http://bugs.chromium.org/p/chromium/issues/detail?id=349835
-              var extent = selected.getExtentOfChar(0); // pos+dimensions of the first glyph
-
-              var _width = selected.getComputedTextLength(); // width of the tspan
-
-
-              ret = {
-                x: extent.x,
-                y: extent.y,
-                width: _width,
-                height: extent.height
-              };
-            }
-          } else {
-            // Check if element is child of a foreignObject
-            var fo = $$2(selected).closest('foreignObject');
-
-            if (fo.length) {
-              if (fo[0].getBBox) {
-                ret = fo[0].getBBox();
-              }
-            }
-          }
-        }
-
-    }
-
-    if (ret) {
-      ret = bboxToObj(ret);
-    } // get the bounding box from the DOM (which is in that element's coordinate system)
-
-
-    return ret;
-  };
+    return {
+      x: minX,
+      y: minY,
+      width: width,
+      height: height
+    };
+  }
   /**
   * @typedef {GenericArray} module:utilities.PathSegmentArray
   * @property {Integer} length 2
@@ -11396,6 +11348,7 @@
     leaveContext();
     canvas_.changeSVGContent();
   };
+  
   /**
   * Return from a group context to the regular kind, make any previously
   * disabled elements enabled again.
@@ -11404,8 +11357,11 @@
   * @returns {void}
   */
 
+  var rotateValue = null;
+
   var leaveContext = function leaveContext() {
     var len = disabledElems.length;
+    rotateValue = null;
 
     if (len) {
       for (var i = 0; i < len; i++) {
@@ -11444,49 +11400,7 @@
     } // Edit inside this group
 
 
-    // Función alternativa que maneja mejor casos complejos de transformación
-    function decomposeMatrixRotation(elem) {
-      var tlist = getTransformList(elem);
-      var transform = transformListToTransform(tlist);
-      var m = transform.matrix;
-      
-      var a = m.a, b = m.b, c = m.c, d = m.d, e = m.e, f = m.f;
-      
-      // Calcular el ángulo de rotación
-      var angle = Math.atan2(b, a) * (180 / Math.PI);
-      
-      // if (Math.abs(angle) < 0.001) {
-      //   console.log("No hay rotación significativa");
-      //   return;
-      // }
-      
-      // // Calcular la escala
-      // var scaleX = Math.sqrt(a * a + b * b);
-      // var scaleY = Math.sqrt(c * c + d * d);
-      
-      // var det = a * d - b * c;
-      // if (det < 0) {
-      //   scaleY = -scaleY;
-      // }
-      
-      // // Construir el string de transformación directamente
-      // var matrixStr = "matrix(" + scaleX + ",0,0," + scaleY + "," + e + "," + f + ")";
-      // var rotateStr = "rotate(" + angle + ")";
-      // var transformStr = matrixStr + " " + rotateStr;
-      
-      // // Limpiar y establecer la nueva transformación
-      // elem.transform.baseVal.clear();
-      // elem.setAttribute('transform', transformStr);
-      
-      // console.log("Transform establecido:", transformStr);
-      // console.log("Verificación - atributo transform:", elem.getAttribute('transform'));
-
-    };
-
-    // Extrac rotate from matrix --Probando
-    decomposeMatrixRotation(elem);
-
-    console.log(elem);
+    rotateValue = getRotateAncestor(elem, true);
 
     canvas_.setCurrentGroup(elem); // Disable other elements
 
@@ -12211,11 +12125,15 @@
   /**
   * Get the full rotation of the element's parents
   * @param {string} selected - The element to be evaluated
+  * @param {bool} elemto - true if the element needs to be evaluated, default false
   * @returns rotation
   */
 
-  function getRotateAncestor(selected) {
+  function getRotateAncestor(selected, elemto = false) {
     let el = selected.parentNode;
+    if (elemto) {
+      el = selected;
+    }
     let rotationall = 0;
 
     while (el && el.id !== "svgcontent") {
@@ -12249,15 +12167,15 @@
   /**
   * Get the rotation of the bbox with an angle
   * @param bbox - The bbox
-  * @param {float} rotateValue - The angle of the rotation
+  * @param {float} rotateVal - The angle of the rotation
   * @returns new bbox
   */
 
-  function getRotateBBOX(bbox, rotateValue) {
+  function getRotateBBOX(bbox, rotateVal) {
     //---- Probando si es necesario rotar el bbox:
-    if (rotateValue && rotateValue != 0) {
-        console.log("Está dentro de un elemento rotado. Valor rotate:", rotateValue);
-        let angle = -rotateValue * Math.PI / 180; // negativo para deshacer
+    if (rotateVal && rotateVal != 0) {
+        console.log("Está dentro de un elemento rotado. Valor rotate:", rotateVal);
+        let angle = -rotateVal * Math.PI / 180; // negativo para deshacer
         let cx = box.x + box.width / 2;
         let cy = box.y + box.height / 2;
 
@@ -13263,13 +13181,12 @@
 
         m.e *= currentZoom;
         m.f *= currentZoom;
-
+        
         if (!bbox) {
-          bbox = getBBox(selected);
+          bbox = getBBox(selected, rotateValue ? false: true);
         } // TODO: getBBox (previous line) already knows to call getStrokedBBox when tagName === 'g'. Remove this?
         // TODO: getBBox doesn't exclude 'gsvg' and calls getStrokedBBox for any 'g'. Should getBBox be updated?
 
-        let rotateValue = getRotateAncestor(selected);
 
         if (tagName === 'g' && !$$8.data(selected, 'gsvg')) {
           // The bbox for a group does not include stroke vals, so we
@@ -13291,8 +13208,29 @@
         // *
 
         offset *= currentZoom;
-        var nbox = transformBox(l * currentZoom, t * currentZoom, w * currentZoom, h * currentZoom, m),
+        var nbox, aabox;
+        if (rotateValue) {
+            // El bbox ya está transformado, solo aplicar zoom
+            aabox = {
+                x: l * currentZoom,
+                y: t * currentZoom,
+                width: w * currentZoom,
+                height: h * currentZoom
+            };
+            
+            // Crear nbox con la misma estructura que devuelve transformBox
+            nbox = {
+                tl: { x: aabox.x, y: aabox.y },
+                tr: { x: aabox.x + aabox.width, y: aabox.y },
+                bl: { x: aabox.x, y: aabox.y + aabox.height },
+                br: { x: aabox.x + aabox.width, y: aabox.y + aabox.height },
+                aabox: aabox
+            };
+        } else {
+            // El bbox no está transformado, aplicar la transformación completa
+            nbox = transformBox(l * currentZoom, t * currentZoom, w * currentZoom, h * currentZoom, m);
             aabox = nbox.aabox;
+        }
 
         var nbax = aabox.x - offset,
             nbay = aabox.y - offset,
@@ -13303,13 +13241,10 @@
             cy = nbay + nbah / 2;
         
         var angle = getRotationAngle(selected);
-        var totalangle = angle - parseFloat(rotateValue); // Si son números decimales;
-        // console.log("rotateValue: " + rotateValue);
-        // console.log("angle: " + angle);
 
-        if (totalangle) {
+        if (angle) {
           var rot = svgFactory_.svgRoot().createSVGTransform();
-          rot.setRotate(-totalangle, cx, cy);
+          rot.setRotate(-angle, cx, cy);
           var rotm = rot.matrix;
           nbox.tl = transformPoint(nbox.tl.x, nbox.tl.y, rotm);
           nbox.tr = transformPoint(nbox.tr.x, nbox.tr.y, rotm);
@@ -14419,7 +14354,7 @@
           continue;
         }
 
-        var bbox = getBBox(elem);
+        var bbox = getBBox(elem, rotateValue ? false : true); //Bug: Sometimes when the element have a transformation or the parent, this code doesn't get the correct bbox
 
         if (!bbox) {
           continue;
@@ -15668,7 +15603,7 @@
               if (!selectedElements.includes(mouseTarget)) {
                 // only clear selection if shift is not pressed (otherwise, add
                 // element to selection)
-                if (!evt.shiftKey) {
+                if (!evt.shiftKey && !evt.ctrlKey) {
                   // No need to do the call here as it will be done on addToSelection
                   clearSelection(true);
                 }
@@ -15765,7 +15700,9 @@
               startY = y; // Getting the BBox from the selection box, since we know we
               // want to orient around it
 
-              initBbox = getBBox($$9('#selectedBox0')[0]);
+              let selected = $$9('#selectedBox0')[0];
+
+              initBbox = getBBox(selected, rotateValue ? false: true);
               var bb = {};
               $$9.each(initBbox, function (key, val) {
                 bb[key] = val / currentZoom;
@@ -16085,12 +16022,12 @@
                 
                 // Rotate the value of the movement if the parent is rotated
                 // Todo: Save the parent rotation value once so that this function doesn't calculate it all the time
-                let rotateValue = getRotateAncestor(selected);
-                console.log(rotateValue);
 
-                let rotated = rotatePoint(x, y, -rotateValue, startX, startY);
-                x = rotated.x;
-                y = rotated.y;
+                if (rotateValue) {
+                  let rotated = rotatePoint(x, y, -rotateValue, startX, startY);
+                  x = rotated.x;
+                  y = rotated.y;
+                }
 
                 dx = x - startX;
                 dy = y - startY;
@@ -16203,9 +16140,9 @@
               tlist = getTransformList(selected);
               var hasMatrix = hasMatrixTransform(tlist);
               box = hasMatrix ? initBbox : getBBox(selected);
-              
+
               var left = box.x,
-                  top = box.y,
+              top = box.y,
                   _box = box,
                   width = _box.width,
                   height = _box.height;
@@ -16229,7 +16166,6 @@
               } // if not stretching in y direction, set dy to 0
               // if not stretching in x direction, set dx to 0
 
-
               if (!currentResizeMode.includes('n') && !currentResizeMode.includes('s')) {
                 dy = 0;
               }
@@ -16249,12 +16185,10 @@
                 ty = height;
               } // if we dragging on the east side, then adjust the scale factor and tx
 
-
               if (currentResizeMode.includes('w')) {
                 sx = width ? (width - dx) / width : 1;
                 tx = width;
               } // update the transform list with translate,scale,translate
-
 
               var translateOrigin = svgroot.createSVGTransform(),
                   scale = svgroot.createSVGTransform(),
@@ -16267,8 +16201,6 @@
                 ty = snapToGrid(ty);
               }
 
-              translateOrigin.setTranslate(-(left + tx), -(top + ty));
-
               if (evt.shiftKey) {
                 if (sx === 1) {
                   sx = sy;
@@ -16276,9 +16208,12 @@
                   sy = sx;
                 }
               }
+              
+              // Todo: when we have an element with a transformation inside another with other transformation sometimes this not scale whell (it moves in random places)
 
               scale.setScale(sx, sy);
               translateBack.setTranslate(left + tx, top + ty);
+              translateOrigin.setTranslate(-(left + tx), -(top + ty));
 
               if (hasMatrix) {
                 var diff = angle ? 1 : 0;
@@ -17435,6 +17370,7 @@
 
           if (parent.tagName !== 'g' && parent.tagName !== 'a' || parent === getCurrentDrawing().getCurrentLayer() || mouseTarget === selectorManager.selectorParentGroup) {
             // Escape from in-group edit
+            editor.clickSelect();
             return;
           }
 
@@ -19386,6 +19322,7 @@
         svgroot.append(selectorManager.selectorParentGroup);
         if (!preventUndo) addCommandToHistory();
         call('changed', [svgcontent]);
+        
       } catch (e) {
         console.log(e); // eslint-disable-line no-console
 
@@ -29952,7 +29889,8 @@
       var cached = editor.storage.getItem(_name);
 
       if (cached) {
-        editor.loadFromString(cached);
+        editor.loadFromString(cached);        
+        // Maybe save the last zoom and center coordinates
       }
     } // LOAD PREFS
 
@@ -30195,7 +30133,7 @@
         */
         editor.storage = localStorage;
       }
-    } catch (err) {} // Todo: Avoid const-defined functions and group functions together, etc. where possible
+    } catch (err) {console.log(err);} // Todo: Avoid const-defined functions and group functions together, etc. where possible
 
 
     var goodLangs = [];
@@ -31787,16 +31725,18 @@
       }
 
       if (center) {
-        // Go to top-left for larger documents
-        if (svgCanvas.contentW > wArea.width()) {
-          // Top-left
-          workarea[0].scrollLeft = offset.x - 10;
-          workarea[0].scrollTop = offset.y - 10;
-        } else {
-          // Center
-          wArea[0].scrollLeft = scrollX;
-          wArea[0].scrollTop = scrollY;
-        }
+        wArea[0].scrollLeft = scrollX;
+        wArea[0].scrollTop = scrollY;
+        // // Go to top-left for larger documents
+        // if (svgCanvas.contentW > wArea.width()) {
+        //   // Top-left
+        //   workarea[0].scrollLeft = offset.x - 10;
+        //   workarea[0].scrollTop = offset.y - 10;
+        // } else {
+        //   // Center
+        //   wArea[0].scrollLeft = scrollX;
+        //   wArea[0].scrollTop = scrollY;
+        // }
       } else {
         wArea[0].scrollLeft = newCtr.x - wOrig / 2;
         wArea[0].scrollTop = newCtr.y - hOrig / 2;
@@ -36190,6 +36130,24 @@
         key: modKey + 'x',
         fn: cutSelected
       }, {
+        key: modKey + 's',
+        fn: function fn() {
+          if (editingsource) {
+            saveSourceEditor();
+          } else {
+            clickSave();
+          }
+        }
+      }, {
+        key: modKey + 'd',
+        fn: function fn() {
+          if (dialogSelectors.every(function (sel) {
+            return $$b(sel + ':hidden').length;
+          })) {
+            svgCanvas.clearSelection();
+          }
+        }
+      }, {
         key: modKey + 'c',
         fn: copySelected
       }, {
@@ -37130,9 +37088,11 @@
 
             case 9:
             case "end":
+              
               return _context22.stop();
           }
         }
+
       }, null, null, [[0, 5]]);
     });
   };
@@ -37399,7 +37359,7 @@
     Setting as `['*']` would allow any domain to access but would be unsafe to
     data privacy and integrity.
     */
-    // allowedOrigins: [location.origin || 'null'], // May be 'null' (as a string) when used as a `file:///` URL
+    //allowedOrigins: [location.origin || 'null'], // May be 'null' (as a string) when used as a `file:///` URL
     // DOCUMENT PROPERTIES
     // dimensions: [640, 480],
     // EDITOR OPTIONS
@@ -37412,7 +37372,7 @@
     // showGrid: false, // Set by ext-grid.js
     // EXTENSION-RELATED (STORAGE)
     // noStorageOnLoad: false, // Some interaction with ext-storage.js; prevent even the loading of previously saved local storage
-    // forceStorage: false, // Some interaction with ext-storage.js; strongly discouraged from modification as it bypasses user privacy by preventing them from choosing whether to keep local storage or not
+    forceStorage: true, // Some interaction with ext-storage.js; strongly discouraged from modification as it bypasses user privacy by preventing them from choosing whether to keep local storage or not
     // emptyStorageOnDecline: true, // Used by ext-storage.js; empty any prior storage if the user declines to store
   }); // PREF CHANGES
 

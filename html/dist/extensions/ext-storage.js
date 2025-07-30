@@ -80,6 +80,7 @@ var svgEditorExtension_storage = (function () {
           emptyStorageOnDecline = _svgEditor$curConfig.emptyStorageOnDecline,
           noStorageOnLoad = _svgEditor$curConfig.noStorageOnLoad,
           forceStorage = _svgEditor$curConfig.forceStorage;
+      
       var storage = svgEditor.storage,
           updateCanvas = svgEditor.updateCanvas;
       /**
@@ -174,13 +175,14 @@ var svgEditorExtension_storage = (function () {
 
 
       function setupBeforeUnloadListener() {
-        window.addEventListener('beforeunload', function (e) {
+        document.addEventListener('mouseleave', function (e) { // pywebview does not detect the beforeunload event before closing
+
           // Don't save anything unless the user opted in to storage
-          if (!document.cookie.match(/(?:^|;\s*)svgeditstore=(?:prefsAndContent|prefsOnly)/)) {
+          if (!forceStorage && !document.cookie.match(/(?:^|;\s*)svgeditstore=(?:prefsAndContent|prefsOnly)/)) {
             return;
           }
 
-          if (document.cookie.match(/(?:^|;\s*)svgeditstore=prefsAndContent/)) {
+          if (forceStorage || document.cookie.match(/(?:^|;\s*)svgeditstore=prefsAndContent/)) {
             setSVGContentStorage(svgCanvas.getSvgString());
           }
 
@@ -211,6 +213,8 @@ var svgEditorExtension_storage = (function () {
               document.cookie = encodeURIComponent(key) + '=' + val + '; expires=Fri, 31 Dec 9999 23:59:59 GMT';
             }
           });
+
+          pywebview.api.storageAPI.save_localStorage(storage); // Save the localstorage
         });
       }
 
