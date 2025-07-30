@@ -8,6 +8,7 @@ This project adapts the popular web-based SVG editor **SVG-Edit** to run as a de
 
 ## Features
 
+- Dark and Light mode
 - Full-featured SVG editor (based on SVG-Edit)
 - Desktop window using `pywebview` (no need for a browser)
 - Integration between Python and JavaScript through `SVGEditAPI.py`
