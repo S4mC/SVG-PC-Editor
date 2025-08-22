@@ -2,7 +2,8 @@
 
 A desktop-ready version of **SVG-Edit** using **Python** and **pywebview**.
 
-<img width="1480" height="980" alt="image" src="https://github.com/user-attachments/assets/8843ddee-aee1-4de2-903f-b1bc18e39a4f" />
+<img width="1480" height="980" alt="image" src="https://github.com/user-attachments/assets/94f0ab37-93a3-4d5f-8023-1bff838fcd48" />
+
 
 
 ## Overview
