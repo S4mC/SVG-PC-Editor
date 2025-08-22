@@ -26,9 +26,3 @@ This project adapts the popular web-based SVG editor **SVG-Edit** to run as a de
 ## Requirements
 
 - Python 3.8+
-- `pywebview` library
-
-Install with:
-
-```bash
-pip install pywebview
