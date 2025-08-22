@@ -175,7 +175,9 @@ var svgEditorExtension_storage = (function () {
 
 
       function setupBeforeUnloadListener() {
-        document.addEventListener('mouseleave', function (e) { // pywebview does not detect the beforeunload event before closing
+        // Save preferences before closed
+        window.addEventListener('beforeClosing', function (e) { // pywebview does not detect the beforeunload event before closing
+          let svgContentHtml = svgCanvas.getSvgString();
 
           // Don't save anything unless the user opted in to storage
           if (!forceStorage && !document.cookie.match(/(?:^|;\s*)svgeditstore=(?:prefsAndContent|prefsOnly)/)) {
@@ -183,7 +185,7 @@ var svgEditorExtension_storage = (function () {
           }
 
           if (forceStorage || document.cookie.match(/(?:^|;\s*)svgeditstore=prefsAndContent/)) {
-            setSVGContentStorage(svgCanvas.getSvgString());
+            setSVGContentStorage(svgContentHtml);
           }
 
           svgEditor.setConfig({
@@ -214,7 +216,17 @@ var svgEditorExtension_storage = (function () {
             }
           });
 
-          pywebview.api.storageAPI.save_localStorage(storage); // Save the localstorage
+          // Takes the contents of the layer out
+          // let layers = page_var_edited.querySelectorAll('.layer');
+          // layers.forEach(layer => {{
+          //     let parent = layer.parentNode;
+          //     while (layer.firstChild) {{
+          //         parent.insertBefore(layer.firstChild, layer);
+          //     }}
+          //     parent.removeChild(layer);
+          // }});
+
+          pywebview.api.final_svg(svgContentHtml);
         });
       }
 
