@@ -2,6 +2,9 @@
 
 A desktop-ready version of **SVG-Edit** using **Python** and **pywebview**.
 
+<img width="1480" height="980" alt="image" src="https://github.com/user-attachments/assets/8843ddee-aee1-4de2-903f-b1bc18e39a4f" />
+
+
 ## Overview
 
 This project adapts the popular web-based SVG editor **SVG-Edit** to run as a desktop application. It uses Python and `pywebview` to wrap the HTML/JS interface in a native desktop window.
