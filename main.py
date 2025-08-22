@@ -6,18 +6,18 @@ import sys
 
 from SVGEditAPI import SVGEditAPI
 
-# Construir la ruta al archivo HTML relativa al script
+# Build the path to the HTML file relative to the script
 def get_html_path():
-    # Carpeta donde está el ejecutable o script
+    # Folder where the executable or script is located
     if getattr(sys, 'frozen', False):
-        # Si no existe, buscar en Program Data
+        # If it doesn't exist, look in Program Data
         cache_dir = os.environ.get("CACHE_DIR")
         program_data_html = os.path.join(cache_dir, "SVG-PC-Editor", "Cache", "html", "editor", "svg-editor.html")
         return program_data_html
     else:
-        # Script en desarrollo
+        # Development script
         app_dir = os.path.dirname(os.path.abspath(__file__))
-        # Primero buscar en la carpeta actual
+        # First look in the current folder
         local_html = os.path.join(app_dir, "html", "editor", "svg-editor.html")
         return local_html
 
