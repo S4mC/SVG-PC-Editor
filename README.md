@@ -12,15 +12,11 @@ This project adapts the popular web-based SVG editor **SVG-Edit** to run as a de
 - Full-featured SVG editor (based on SVG-Edit)
 - Desktop window using `pywebview` (no need for a browser)
 - Integration between Python and JavaScript through `SVGEditAPI.py`
-- Local storage management with persistence
-- Optional internal web server for advanced use cases
 
 ## Project Structure
 
 - `main.py` — Main entry point, loads the editor via `pywebview`
-- `mainWServer.py` — Alternate version that runs a local server
 - `SVGEditAPI.py` — API bridge between Python and JavaScript
-- `LocalStorageManager.py` — Handles localStorage saving
 - `html/` — Contains the modified SVG-Edit frontend
 
 ## Requirements
